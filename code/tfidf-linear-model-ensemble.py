@@ -64,10 +64,10 @@ def train_models(df_train):
     model1 = Ridge(alpha=0.5)
     model1.fit(vectorized_text, y_col)
 
-    model2 = Ridge(alpha=1.0)
+    model2 = Ridge(alpha=1)
     model2.fit(vectorized_text, y_col)
 
-    model3 = Ridge(alpha=2.0)
+    model3 = Ridge(alpha=2)
     model3.fit(vectorized_text, y_col)
 
     ridge_m_list = [model1, model2, model3]
@@ -126,10 +126,6 @@ df_train = pd.read_csv(
 )
 df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
 df_train = preprocess(df_train)
-
-
-# tmp =  df_train.text
-
 tfidf_vec, ridge_m_list = train_models(df_train)
 
 
@@ -160,7 +156,7 @@ df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv"
 tqdm.pandas()
 df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
 df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
-df_val["concat"] = df_val.less_toxic + df_val.more_toxic
+# df_val["concat"] = df_val.less_toxic + df_val.more_toxic
 # df_val = df_val.drop_duplicates(subset=["concat"])
 
 validate_model(df_val, ridge_m_list, tfidf_vec)
