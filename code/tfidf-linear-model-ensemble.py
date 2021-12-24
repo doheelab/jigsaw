@@ -49,7 +49,7 @@ def train_models(df_train):
     # Undersampling
     min_len = (df_train["y"] > 0).sum()
     df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
-        n=min_len * 2, random_state=402
+        n=int(min_len * 3), random_state=402
     )
     df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
 
@@ -126,7 +126,16 @@ df_train = pd.read_csv(
 )
 df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
 df_train = preprocess(df_train)
+
+
+# tmp =  df_train.text
+
 tfidf_vec, ridge_m_list = train_models(df_train)
+
+
+# len(tfidf_vec.vocabulary_.items())
+# np.max([val for (i, val) in tfidf_vec.vocabulary_.items()])
+
 
 # <h2>Text cleaning</h2>
 tqdm.pandas()
