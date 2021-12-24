@@ -74,29 +74,6 @@ def train_models(df_train):
     return tfidf_vec, ridge_m_list
 
 
-def validate_model(df_val, ridge_m_list, tfidf_vec):
-
-    [model1, model2, model3] = ridge_m_list
-
-    X_less_toxic = tfidf_vec.transform(df_val["less_toxic"])
-    X_more_toxic = tfidf_vec.transform(df_val["more_toxic"])
-
-    p1 = model1.predict(X_less_toxic)
-    p2 = model1.predict(X_more_toxic)
-    val1 = (p1 < p2).mean()
-
-    p1 = model2.predict(X_less_toxic)
-    p2 = model2.predict(X_more_toxic)
-    val2 = (p1 < p2).mean()
-
-    p1 = model3.predict(X_less_toxic)
-    p2 = model3.predict(X_more_toxic)
-    val3 = (p1 < p2).mean()
-    val_acc = np.round(np.mean([val1, val2, val3]), 3)
-
-    print("Validation Accuracy:", val_acc)
-
-
 def preprocess(df_train):
     # Create a score that measure how much toxic is a comment
     toxicity_dict = {
@@ -120,6 +97,29 @@ def preprocess(df_train):
     return df_train
 
 
+def validate_model(df_val, ridge_m_list, tfidf_vec):
+
+    [model1, model2, model3] = ridge_m_list
+
+    X_less_toxic = tfidf_vec.transform(df_val["less_toxic"])
+    X_more_toxic = tfidf_vec.transform(df_val["more_toxic"])
+
+    p1 = model1.predict(X_less_toxic)
+    p2 = model1.predict(X_more_toxic)
+    val1 = (p1 < p2).mean()
+
+    p1 = model2.predict(X_less_toxic)
+    p2 = model2.predict(X_more_toxic)
+    val2 = (p1 < p2).mean()
+
+    p1 = model3.predict(X_less_toxic)
+    p2 = model3.predict(X_more_toxic)
+    val3 = (p1 < p2).mean()
+    val_acc = np.round(np.mean([val1, val2, val3]), 3)
+
+    print("Validation Accuracy:", val_acc)
+
+
 df_train = pd.read_csv(
     "../input/jigsaw-toxic-comment-classification-challenge/train.csv"
 )
@@ -137,17 +137,11 @@ X_test = tfidf_vec.transform(df_sub["text"])
 p3 = model1.predict(X_test)
 p4 = model2.predict(X_test)
 p5 = model3.predict(X_test)
-
 df_sub["score"] = (p3 + p4 + p5) / 3.0
-df_sub["score"].count()
-
-# 9 comments will fail if compared one with the other
-df_sub["score"].nunique()
 
 # <h2>Prepare submission file</h2>
-# df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
-df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
-
+df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
+# df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
 
 # Prepare validation data
 df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv")
