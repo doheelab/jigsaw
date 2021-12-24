@@ -49,7 +49,7 @@ def train_models(df_train):
     # Undersampling
     min_len = (df_train["y"] > 0).sum()
     df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
-        n=int(min_len * 3), random_state=402
+        n=min_len * 2, random_state=402
     )
     df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
 
@@ -116,8 +116,8 @@ def validate_model(df_val, ridge_m_list, tfidf_vec):
     p1 = model3.predict(X_less_toxic)
     p2 = model3.predict(X_more_toxic)
     val3 = (p1 < p2).mean()
+    print([np.round(val1, 3), np.round(val2, 3), np.round(val3, 3)])
     val_acc = np.round(np.mean([val1, val2, val3]), 3)
-
     print("Validation Accuracy:", val_acc)
 
 
