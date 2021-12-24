@@ -74,34 +74,27 @@ def train_models(df_train):
     return tfidf_vec, ridge_m_list
 
 
-def validate_model(ridge_m_list, tfidf_vec):
+def validate_model(df_val, ridge_m_list, tfidf_vec):
 
     [model1, model2, model3] = ridge_m_list
-    # Prepare validation data
-    df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv")
-
-    # <h2>Text cleaning</h2>
-    tqdm.pandas()
-    df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
-    df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
 
     X_less_toxic = tfidf_vec.transform(df_val["less_toxic"])
     X_more_toxic = tfidf_vec.transform(df_val["more_toxic"])
 
     p1 = model1.predict(X_less_toxic)
     p2 = model1.predict(X_more_toxic)
-
-    print("Validation Accuracy:", (p1 < p2).mean())
+    val1 = (p1 < p2).mean()
 
     p1 = model2.predict(X_less_toxic)
     p2 = model2.predict(X_more_toxic)
-
-    print("Validation Accuracy:", (p1 < p2).mean())
+    val2 = (p1 < p2).mean()
 
     p1 = model3.predict(X_less_toxic)
     p2 = model3.predict(X_more_toxic)
+    val3 = (p1 < p2).mean()
+    val_acc = np.round(np.mean([val1, val2, val3]), 3)
 
-    print("Validation Accuracy:", (p1 < p2).mean())
+    print("Validation Accuracy:", val_acc)
 
 
 def preprocess(df_train):
@@ -154,3 +147,14 @@ df_sub["score"].nunique()
 # <h2>Prepare submission file</h2>
 # df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
 df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
+
+
+# Prepare validation data
+df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv")
+
+# <h2>Text cleaning</h2>
+tqdm.pandas()
+df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
+df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
+
+validate_model(df_val, ridge_m_list, tfidf_vec)
