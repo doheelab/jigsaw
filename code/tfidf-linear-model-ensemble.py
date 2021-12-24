@@ -91,7 +91,7 @@ def preprocess(df_train):
 
     df_train["y"] = df_train.loc[:, "toxic":"identity_hate"].sum(axis=1)
     df_train = df_train.rename(columns={"comment_text": "text"})
-    df_train = df_train.drop_duplicates(subset=["text"])
+    # df_train = df_train.drop_duplicates(subset=["text"])
 
     tqdm.pandas()
     df_train["text"] = df_train["text"].progress_apply(text_cleaning)
@@ -161,6 +161,6 @@ tqdm.pandas()
 df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
 df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
 df_val["concat"] = df_val.less_toxic + df_val.more_toxic
-df_val = df_val.drop_duplicates(subset=["concat"])
+# df_val = df_val.drop_duplicates(subset=["concat"])
 
 validate_model(df_val, ridge_m_list, tfidf_vec)
