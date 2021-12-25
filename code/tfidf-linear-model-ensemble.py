@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import Ridge, LogisticRegression
 from sklearn.preprocessing import normalize
 from tqdm.auto import tqdm
 
@@ -54,29 +54,32 @@ def train_models(df_concat):
     vectorized_text = tfidf_vec.fit_transform(df_concat["text"])
     y_col = df_concat["y"]
 
-    vectorized_text = normalize(vectorized_text, norm="l2", axis=1)
-
+    # vectorized_text = normalize(vectorized_text, norm="l2", axis=1)
     # <h1>Fit Ridge</h1>
-    model1 = Ridge(alpha=0.5)
-    model1.fit(vectorized_text, y_col)
 
-    model2 = Ridge(alpha=1)
-    model2.fit(vectorized_text, y_col)
+    model = LogisticRegression(max_iter=100)
+    y_col = (y_col > 0).astype(int)
+    model.fit(vectorized_text, y_col)
+    ridge_m_list = [model]
+    # model1 = Ridge(alpha=0.5)
+    # model1.fit(vectorized_text, y_col)
 
-    model3 = Ridge(alpha=2)
-    model3.fit(vectorized_text, y_col)
+    # model2 = Ridge(alpha=1)
+    # model2.fit(vectorized_text, y_col)
 
-    ridge_m_list = [model1, model2, model3]
+    # model3 = Ridge(alpha=2)
+    # model3.fit(vectorized_text, y_col)
+
+    # ridge_m_list = [model1, model2, model3]
     return tfidf_vec, ridge_m_list
 
 
-def preprocess(df_train):
+def preprocess(df_train, column_list):
 
     # Apply toxicity
     for category in toxicity_dict:
         df_train[category] = df_train[category] * toxicity_dict[category]
-
-    df_train["y"] = df_train.loc[:, "toxic":"identity_hate"].sum(axis=1)
+    df_train["y"] = df_train.loc[:, column_list].sum(axis=1)
     # set values to 1
     # df_train.loc[df_train[df_train["y"] > 0].index, "y"] = 1
     df_train = df_train.rename(columns={"comment_text": "text"})
@@ -107,22 +110,21 @@ def validate_model(tfidf_vec_list, ridge_m_all):
             * int(len(ridge_m_all) / n_folds) : (i + 1)
             * int(len(ridge_m_all) / n_folds)
         ]:
-            p1 += model.predict(X_less_toxic)
-            p2 += model.predict(X_more_toxic)
-    val_acc = np.round((p1 < p2).mean(), 3)
-
-    print("Validation Accuracy:", val_acc)
+            # p1 += model.predict(X_less_toxic)
+            # p2 += model.predict(X_more_toxic)
+            p1 += model.predict_proba(X_less_toxic)[:, 1]
+            p2 += model.predict_proba(X_more_toxic)[:, 1]
+    return p1, p2
 
 
 from sklearn.model_selection import KFold
 
 
-def train_model():
+# df_train.to_csv("../df_train.csv", index=False)
 
-    df_train = pd.read_csv(
-        "../input/jigsaw-toxic-comment-classification-challenge/train.csv"
-    )
-    df_train = preprocess(df_train)
+
+def get_trained_models(df_train):
+
     # Undersampling
     min_len = (df_train["y"] > 0).sum()
     df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
@@ -139,7 +141,6 @@ def train_model():
     for fold_, (trn_idx, val_idx) in enumerate(
         folds.split(df_concat.text, df_concat.y)
     ):
-        strLog = "fold {}".format(fold_)
         X_tr, X_val = df_concat.iloc[trn_idx], df_concat.iloc[val_idx]
         tfidf_vec, ridge_m_list = train_models(X_tr)
         tfidf_vec_list.append(tfidf_vec)
@@ -161,10 +162,10 @@ def predict_result(tfidf_vec_list, ridge_m_all):
             * int(len(ridge_m_all) / n_folds) : (i + 1)
             * int(len(ridge_m_all) / n_folds)
         ]:
-            p3 += model.predict(X_test) / (n_folds * n_folds)
+            p3 += model.predict_proba(X_test)[:, 1] / (n_folds * len(ridge_m_all))
         df_sub["score"] += p3
     # df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
-    df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
+    return df_sub
 
 
 if __name__ == "__main__":
@@ -180,9 +181,20 @@ if __name__ == "__main__":
     }
 
     n_folds = 2
-    tfidf_vec_list, ridge_m_all = train_model()
-    validate_model(tfidf_vec_list, ridge_m_all)
-    # predict_result(tfidf_vec_list, ridge_m_all)
+    df_train = pd.read_csv(
+        "../input/jigsaw-toxic-comment-classification-challenge/train.csv"
+    )
+
+    column_list = list(df_train.columns)[2:8]
+    df_train = preprocess(df_train, column_list)
+    tfidf_vec_list, ridge_m_all = get_trained_models(df_train)
+
+    # p1, p2 = validate_model(tfidf_vec_list, ridge_m_all)
+    # val_acc = np.round((p1 < p2).mean(), 3)
+    # print("Validation Accuracy:", val_acc)
+
+    df_sub = predict_result(tfidf_vec_list, ridge_m_all)
+    df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
 
 
 # df_train.columns
