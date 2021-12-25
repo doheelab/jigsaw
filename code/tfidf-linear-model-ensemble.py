@@ -68,21 +68,14 @@ def train_models(df_concat):
 
 
 def preprocess(df_train):
-    # Create a score that measure how much toxic is a comment
-    toxicity_dict = {
-        "obscene": 0.16,
-        "toxic": 0.32,
-        "threat": 1.5,
-        "insult": 0.64,
-        "severe_toxic": 1.5,
-        "identity_hate": 1.5,
-    }
 
     # Apply toxicity
     for category in toxicity_dict:
         df_train[category] = df_train[category] * toxicity_dict[category]
 
     df_train["y"] = df_train.loc[:, "toxic":"identity_hate"].sum(axis=1)
+    # set values to 1
+    df_train[df_train["y"] > 0] = 1
     df_train = df_train.rename(columns={"comment_text": "text"})
     # df_train = df_train.drop_duplicates(subset=["text"])
 
@@ -145,7 +138,6 @@ def train_model():
     ):
         strLog = "fold {}".format(fold_)
         X_tr, X_val = df_concat.iloc[trn_idx], df_concat.iloc[val_idx]
-        y_tr, y_val = df_concat.y.iloc[trn_idx], df_concat.y.iloc[val_idx]
         tfidf_vec, ridge_m_list = train_models(X_tr)
         tfidf_vec_list.append(tfidf_vec)
         ridge_m_all += ridge_m_list
@@ -168,11 +160,40 @@ def predict_result(tfidf_vec_list, ridge_m_all):
         ]:
             p3 += model.predict(X_test) / (n_folds * n_folds)
         df_sub["score"] += p3
-    df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
+    # df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
+    df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
 
 
 if __name__ == "__main__":
+
+    # Create a score that measure how much toxic is a comment
+    toxicity_dict = {
+        "obscene": 0.16,
+        "toxic": 0.32,
+        "threat": 1.5,
+        "insult": 0.64,
+        "severe_toxic": 1.5,
+        "identity_hate": 1.5,
+    }
+    toxicity_dict = {
+        "obscene": 1,
+        "toxic": 1,
+        "threat": 1,
+        "insult": 1,
+        "severe_toxic": 1,
+        "identity_hate": 1,
+    }
+
     n_folds = 2
     tfidf_vec_list, ridge_m_all = train_model()
-    validate_model(tfidf_vec_list, ridge_m_all)
+    # validate_model(tfidf_vec_list, ridge_m_all)
+    predict_result(tfidf_vec_list, ridge_m_all)
+
+
+# df_train.columns
+
+# np.sum(df_train.toxic)
+# np.sum(df_train.severe_toxic)
+
+# df_train[df_train.severe_toxic == 1][["toxic", "severe_toxic"]]
 
