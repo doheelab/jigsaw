@@ -75,7 +75,7 @@ def preprocess(df_train):
 
     df_train["y"] = df_train.loc[:, "toxic":"identity_hate"].sum(axis=1)
     # set values to 1
-    df_train[df_train["y"] > 0] = 1
+    df_train.loc[df_train[df_train["y"] > 0].index, "y"] = 1
     df_train = df_train.rename(columns={"comment_text": "text"})
     # df_train = df_train.drop_duplicates(subset=["text"])
 
@@ -175,19 +175,11 @@ if __name__ == "__main__":
         "severe_toxic": 1.5,
         "identity_hate": 1.5,
     }
-    toxicity_dict = {
-        "obscene": 1,
-        "toxic": 1,
-        "threat": 1,
-        "insult": 1,
-        "severe_toxic": 1,
-        "identity_hate": 1,
-    }
 
     n_folds = 2
     tfidf_vec_list, ridge_m_all = train_model()
-    # validate_model(tfidf_vec_list, ridge_m_all)
-    predict_result(tfidf_vec_list, ridge_m_all)
+    validate_model(tfidf_vec_list, ridge_m_all)
+    # predict_result(tfidf_vec_list, ridge_m_all)
 
 
 # df_train.columns
