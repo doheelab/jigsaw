@@ -4,6 +4,7 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import Ridge
+from sklearn.preprocessing import normalize
 from tqdm.auto import tqdm
 
 
@@ -52,6 +53,8 @@ def train_models(df_concat):
 
     vectorized_text = tfidf_vec.fit_transform(df_concat["text"])
     y_col = df_concat["y"]
+
+    vectorized_text = normalize(vectorized_text, norm="l2", axis=1)
 
     # <h1>Fit Ridge</h1>
     model1 = Ridge(alpha=0.5)
