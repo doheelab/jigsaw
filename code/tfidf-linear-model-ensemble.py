@@ -91,7 +91,13 @@ def preprocess(df_train):
     return df_train
 
 
-def validate_model(df_val, ridge_m_all, tfidf_vec_list):
+def validate_model(tfidf_vec_list, ridge_m_all):
+    df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv")
+
+    # <h2>Text cleaning</h2>
+    tqdm.pandas()
+    df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
+    df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
 
     length = df_val.shape[0]
     p1 = np.array([0.0] * length)
@@ -108,59 +114,55 @@ def validate_model(df_val, ridge_m_all, tfidf_vec_list):
     print("Validation Accuracy:", val_acc)
 
 
-df_train = pd.read_csv(
-    "../input/jigsaw-toxic-comment-classification-challenge/train.csv"
-)
-df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
-df_train = preprocess(df_train)
-# Undersampling
-min_len = (df_train["y"] > 0).sum()
-df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
-    n=min_len * 2, random_state=402
-)
-df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
-
 from sklearn.model_selection import KFold
 
-predictions = np.zeros(len(df_sub))
-n_folds = 5
-folds = KFold(n_splits=n_folds, shuffle=True, random_state=2021)
 
-# <h2>Text cleaning</h2>
-tqdm.pandas()
-df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
-df_sub["score"] = 0
+def train_model():
 
-tfidf_vec_list = []
-ridge_m_all = []
+    df_train = pd.read_csv(
+        "../input/jigsaw-toxic-comment-classification-challenge/train.csv"
+    )
+    df_train = preprocess(df_train)
+    # Undersampling
+    min_len = (df_train["y"] > 0).sum()
+    df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
+        n=min_len * 2, random_state=402
+    )
+    df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
 
-# run model
-for fold_, (trn_idx, val_idx) in enumerate(folds.split(df_concat.text, df_concat.y)):
-    strLog = "fold {}".format(fold_)
-    X_tr, X_val = df_concat.iloc[trn_idx], df_concat.iloc[val_idx]
-    y_tr, y_val = df_concat.y.iloc[trn_idx], df_concat.y.iloc[val_idx]
-    tfidf_vec, ridge_m_list = train_models(X_tr)
-    tfidf_vec_list.append(tfidf_vec)
-    ridge_m_all += ridge_m_list
+    n_folds = 5
+    folds = KFold(n_splits=n_folds, shuffle=True, random_state=2021)
 
-for i, tfidf_vec in enumerate(tfidf_vec_list):
-    # <h2>Prediction</h2>
-    X_test = tfidf_vec.transform(df_sub["text"])
-    length = df_sub.shape[0]
-    p3 = np.array([0.0] * length)
-    for model in ridge_m_all[len(ridge_m_list) * i : len(ridge_m_list) * (i + 1)]:
-        p3 += model.predict(X_test) / (len(ridge_m_list) * n_folds)
-    df_sub["score"] += p3
+    tfidf_vec_list = []
+    ridge_m_all = []
 
-# <h2>Prepare submission file</h2>
-df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
-# df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
+    # run model
+    for fold_, (trn_idx, val_idx) in enumerate(
+        folds.split(df_concat.text, df_concat.y)
+    ):
+        strLog = "fold {}".format(fold_)
+        X_tr, X_val = df_concat.iloc[trn_idx], df_concat.iloc[val_idx]
+        y_tr, y_val = df_concat.y.iloc[trn_idx], df_concat.y.iloc[val_idx]
+        tfidf_vec, ridge_m_list = train_models(X_tr)
+        tfidf_vec_list.append(tfidf_vec)
+        ridge_m_all += ridge_m_list
+    return tfidf_vec_list, ridge_m_all
 
-# Prepare validation data
-df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv")
 
-# <h2>Text cleaning</h2>
-tqdm.pandas()
-df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
-df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
-validate_model(df_val, ridge_m_all, tfidf_vec_list)
+def predict_result(tfidf_vec_list, ridge_m_list):
+    df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
+    df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
+    df_sub["score"] = 0
+    for i, tfidf_vec in enumerate(tfidf_vec_list):
+        # <h2>Prediction</h2>
+        X_test = tfidf_vec.transform(df_sub["text"])
+        length = df_sub.shape[0]
+        p3 = np.array([0.0] * length)
+        for model in ridge_m_all[len(ridge_m_list) * i : len(ridge_m_list) * (i + 1)]:
+            p3 += model.predict(X_test) / (len(ridge_m_list) * n_folds)
+        df_sub["score"] += p3
+    df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
+
+
+tfidf_vec_list, ridge_m_all = train_model()
+validate_model(tfidf_vec_list, ridge_m_all)
