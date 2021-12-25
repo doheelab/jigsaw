@@ -44,14 +44,14 @@ def text_cleaning(text):
     return text
 
 
-def train_models(df_train):
+def train_models(df_concat):
 
-    # Undersampling
-    min_len = (df_train["y"] > 0).sum()
-    df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
-        n=min_len * 2, random_state=402
-    )
-    df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
+    # # Undersampling
+    # min_len = (df_train["y"] > 0).sum()
+    # df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
+    #     n=min_len * 2, random_state=402
+    # )
+    # df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
 
     tfidf_vec = TfidfVectorizer(
         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
@@ -126,24 +126,39 @@ df_train = pd.read_csv(
 )
 df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
 df_train = preprocess(df_train)
-tfidf_vec, ridge_m_list = train_models(df_train)
+# Undersampling
+min_len = (df_train["y"] > 0).sum()
+df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
+    n=min_len * 2, random_state=402
+)
+df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
 
+from sklearn.model_selection import KFold
 
-# len(tfidf_vec.vocabulary_.items())
-# np.max([val for (i, val) in tfidf_vec.vocabulary_.items()])
+predictions = np.zeros(len(df_sub))
+n_folds = 5
+folds = KFold(n_splits=n_folds, shuffle=True, random_state=2021)
 
 
 # <h2>Text cleaning</h2>
 tqdm.pandas()
 df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
+df_sub["score"] = 0
 
-# <h2>Prediction</h2>
-X_test = tfidf_vec.transform(df_sub["text"])
-[model1, model2, model3] = ridge_m_list
-p3 = model1.predict(X_test)
-p4 = model2.predict(X_test)
-p5 = model3.predict(X_test)
-df_sub["score"] = (p3 + p4 + p5) / 3.0
+# run model
+for fold_, (trn_idx, val_idx) in enumerate(folds.split(df_concat.text, df_concat.y)):
+    strLog = "fold {}".format(fold_)
+    X_tr, X_val = df_concat.iloc[trn_idx], df_concat.iloc[val_idx]
+    y_tr, y_val = df_concat.y.iloc[trn_idx], df_concat.y.iloc[val_idx]
+    tfidf_vec, ridge_m_list = train_models(X_tr)
+
+    # <h2>Prediction</h2>
+    X_test = tfidf_vec.transform(df_sub["text"])
+    [model1, model2, model3] = ridge_m_list
+    p3 = model1.predict(X_test)
+    p4 = model2.predict(X_test)
+    p5 = model3.predict(X_test)
+    df_sub["score"] += (p3 + p4 + p5) / (3.0 * n_folds)
 
 # <h2>Prepare submission file</h2>
 df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
