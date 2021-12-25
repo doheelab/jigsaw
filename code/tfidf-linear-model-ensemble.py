@@ -130,7 +130,6 @@ def train_model():
     )
     df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
 
-    n_folds = 5
     folds = KFold(n_splits=n_folds, shuffle=True, random_state=2021)
 
     tfidf_vec_list = []
@@ -164,5 +163,7 @@ def predict_result(tfidf_vec_list, ridge_m_list):
     df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
 
 
-tfidf_vec_list, ridge_m_all = train_model()
-validate_model(tfidf_vec_list, ridge_m_all)
+if __name__ == "__main__":
+    n_folds = 5
+    tfidf_vec_list, ridge_m_all = train_model()
+    validate_model(tfidf_vec_list, ridge_m_all)
