@@ -46,13 +46,6 @@ def text_cleaning(text):
 
 def train_models(df_concat):
 
-    # # Undersampling
-    # min_len = (df_train["y"] > 0).sum()
-    # df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
-    #     n=min_len * 2, random_state=402
-    # )
-    # df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
-
     tfidf_vec = TfidfVectorizer(
         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
     )
@@ -98,26 +91,20 @@ def preprocess(df_train):
     return df_train
 
 
-def validate_model(df_val, ridge_m_list, tfidf_vec):
+def validate_model(df_val, ridge_m_all, tfidf_vec_list):
 
-    [model1, model2, model3] = ridge_m_list
+    length = df_val.shape[0]
+    p1 = np.array([0.0] * length)
+    p2 = np.array([0.0] * length)
 
-    X_less_toxic = tfidf_vec.transform(df_val["less_toxic"])
-    X_more_toxic = tfidf_vec.transform(df_val["more_toxic"])
+    for i, tfidf_vec in enumerate(tfidf_vec_list):
+        X_less_toxic = tfidf_vec.transform(df_val["less_toxic"])
+        X_more_toxic = tfidf_vec.transform(df_val["more_toxic"])
+        for model in ridge_m_all[i * 3 : (i + 1) * 3]:
+            p1 += model.predict(X_less_toxic)
+            p2 += model.predict(X_more_toxic)
+    val_acc = np.round((p1 < p2).mean(), 3)
 
-    p1 = model1.predict(X_less_toxic)
-    p2 = model1.predict(X_more_toxic)
-    val1 = (p1 < p2).mean()
-
-    p1 = model2.predict(X_less_toxic)
-    p2 = model2.predict(X_more_toxic)
-    val2 = (p1 < p2).mean()
-
-    p1 = model3.predict(X_less_toxic)
-    p2 = model3.predict(X_more_toxic)
-    val3 = (p1 < p2).mean()
-    print([np.round(val1, 3), np.round(val2, 3), np.round(val3, 3)])
-    val_acc = np.round(np.mean([val1, val2, val3]), 3)
     print("Validation Accuracy:", val_acc)
 
 
@@ -139,11 +126,13 @@ predictions = np.zeros(len(df_sub))
 n_folds = 5
 folds = KFold(n_splits=n_folds, shuffle=True, random_state=2021)
 
-
 # <h2>Text cleaning</h2>
 tqdm.pandas()
 df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
 df_sub["score"] = 0
+
+tfidf_vec_list = []
+ridge_m_all = []
 
 # run model
 for fold_, (trn_idx, val_idx) in enumerate(folds.split(df_concat.text, df_concat.y)):
@@ -151,14 +140,17 @@ for fold_, (trn_idx, val_idx) in enumerate(folds.split(df_concat.text, df_concat
     X_tr, X_val = df_concat.iloc[trn_idx], df_concat.iloc[val_idx]
     y_tr, y_val = df_concat.y.iloc[trn_idx], df_concat.y.iloc[val_idx]
     tfidf_vec, ridge_m_list = train_models(X_tr)
+    tfidf_vec_list.append(tfidf_vec)
+    ridge_m_all += ridge_m_list
 
+for i, tfidf_vec in enumerate(tfidf_vec_list):
     # <h2>Prediction</h2>
     X_test = tfidf_vec.transform(df_sub["text"])
-    [model1, model2, model3] = ridge_m_list
-    p3 = model1.predict(X_test)
-    p4 = model2.predict(X_test)
-    p5 = model3.predict(X_test)
-    df_sub["score"] += (p3 + p4 + p5) / (3.0 * n_folds)
+    length = df_sub.shape[0]
+    p3 = np.array([0.0] * length)
+    for model in ridge_m_all[len(ridge_m_list) * i : len(ridge_m_list) * (i + 1)]:
+        p3 += model.predict(X_test) / (len(ridge_m_list) * n_folds)
+    df_sub["score"] += p3
 
 # <h2>Prepare submission file</h2>
 df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
@@ -171,7 +163,4 @@ df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv"
 tqdm.pandas()
 df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
 df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
-# df_val["concat"] = df_val.less_toxic + df_val.more_toxic
-# df_val = df_val.drop_duplicates(subset=["concat"])
-
-validate_model(df_val, ridge_m_list, tfidf_vec)
+validate_model(df_val, ridge_m_all, tfidf_vec_list)
