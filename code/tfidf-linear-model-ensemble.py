@@ -75,7 +75,7 @@ def preprocess(df_train):
 
     df_train["y"] = df_train.loc[:, "toxic":"identity_hate"].sum(axis=1)
     # set values to 1
-    df_train.loc[df_train[df_train["y"] > 0].index, "y"] = 1
+    # df_train.loc[df_train[df_train["y"] > 0].index, "y"] = 1
     df_train = df_train.rename(columns={"comment_text": "text"})
     # df_train = df_train.drop_duplicates(subset=["text"])
 
