@@ -2,7 +2,7 @@ import re
 import numpy as np
 import pandas as pd
 from bs4 import BeautifulSoup
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import Ridge
 from tqdm.auto import tqdm
 
@@ -106,7 +106,11 @@ def validate_model(tfidf_vec_list, ridge_m_all):
     for i, tfidf_vec in enumerate(tfidf_vec_list):
         X_less_toxic = tfidf_vec.transform(df_val["less_toxic"])
         X_more_toxic = tfidf_vec.transform(df_val["more_toxic"])
-        for model in ridge_m_all[i * 3 : (i + 1) * 3]:
+        for model in ridge_m_all[
+            i
+            * int(len(ridge_m_all) / n_folds) : (i + 1)
+            * int(len(ridge_m_all) / n_folds)
+        ]:
             p1 += model.predict(X_less_toxic)
             p2 += model.predict(X_more_toxic)
     val_acc = np.round((p1 < p2).mean(), 3)
@@ -148,7 +152,7 @@ def train_model():
     return tfidf_vec_list, ridge_m_all
 
 
-def predict_result(tfidf_vec_list, ridge_m_list):
+def predict_result(tfidf_vec_list, ridge_m_all):
     df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
     df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
     df_sub["score"] = 0
@@ -157,13 +161,18 @@ def predict_result(tfidf_vec_list, ridge_m_list):
         X_test = tfidf_vec.transform(df_sub["text"])
         length = df_sub.shape[0]
         p3 = np.array([0.0] * length)
-        for model in ridge_m_all[len(ridge_m_list) * i : len(ridge_m_list) * (i + 1)]:
-            p3 += model.predict(X_test) / (len(ridge_m_list) * n_folds)
+        for model in ridge_m_all[
+            i
+            * int(len(ridge_m_all) / n_folds) : (i + 1)
+            * int(len(ridge_m_all) / n_folds)
+        ]:
+            p3 += model.predict(X_test) / (n_folds * n_folds)
         df_sub["score"] += p3
     df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
 
 
 if __name__ == "__main__":
-    n_folds = 5
+    n_folds = 2
     tfidf_vec_list, ridge_m_all = train_model()
     validate_model(tfidf_vec_list, ridge_m_all)
+
