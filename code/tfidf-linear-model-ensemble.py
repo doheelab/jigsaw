@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import Ridge, LogisticRegression
 from sklearn.preprocessing import normalize
+from sklearn.preprocessing import MinMaxScaler
+
 from tqdm.auto import tqdm
 
 
@@ -206,7 +208,6 @@ if __name__ == "__main__":
 
     for column_list in column_list_of_list:
 
-        # column_list = list(df_train.columns)[2:8]
         df_train = merge_cols(df_train, column_list)
         tfidf_vec_list, ridge_m_all = get_trained_models(df_train)
 
@@ -219,7 +220,7 @@ if __name__ == "__main__":
 
     val_acc = np.round((p1_save < p2_save).mean(), 3)
     print("Validation Accuracy:", val_acc)
-
+    score_save = MinMaxScaler().fit_transform(np.array(score_save).reshape(-1, 1))
     df_sub.score = score_save
     df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
 
