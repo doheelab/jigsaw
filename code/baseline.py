@@ -190,17 +190,8 @@ if __name__ == "__main__":
     df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
     df_sub["score"] = 0
 
-    # column_list_of_list = [
-    #     ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate",]
-    # ]
-
     column_list_of_list = [
-        ["toxic"],
-        ["severe_toxic"],
-        ["obscene"],
-        ["threat"],
-        ["insult"],
-        ["identity_hate"],
+        ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate",]
     ]
 
     train_length = df_train.shape[0]
