@@ -6,6 +6,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import Ridge, LogisticRegression
 from sklearn.preprocessing import normalize
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.model_selection import KFold
 
 from tqdm.auto import tqdm
 
@@ -79,8 +80,8 @@ def train_models(df_concat):
 def merge_cols(df_train, column_list):
 
     # Apply toxicity
-    for category in toxicity_dict:
-        df_train[category] = df_train[category] * toxicity_dict[category]
+    # for category in toxicity_dict:
+    #     df_train[category] = df_train[category] * toxicity_dict[category]
     df_train["y"] = df_train.loc[:, column_list].sum(axis=1)
     # set values to 1
     # df_train.loc[df_train[df_train["y"] > 0].index, "y"] = 1
@@ -108,9 +109,6 @@ def validate_model(df_val, tfidf_vec_list, ridge_m_all):
             # p1 += model.predict(X_less_toxic)[:, 1]
             # p2 += model.predict(X_more_toxic)[:, 1]
     return p1, p2
-
-
-from sklearn.model_selection import KFold
 
 
 # df_train.to_csv("../df_train.csv", index=False)
@@ -203,7 +201,6 @@ if __name__ == "__main__":
         ["identity_hate"],
     ]
 
-    train_length = df_train.shape[0]
     val_length = df_val.shape[0]
     sub_length = df_sub.shape[0]
     p1_save = np.array([0.0] * val_length)
@@ -218,20 +215,17 @@ if __name__ == "__main__":
         p1, p2 = validate_model(df_val, tfidf_vec_list, ridge_m_all)
         df_sub = predict_result(tfidf_vec_list, ridge_m_all)
 
+        # p1 *= toxicity_dict[column_list[0]]
+        # p2 *= toxicity_dict[column_list[0]]
+        scaled_score = df_sub.score  # * toxicity_dict[column_list[0]]
+
         p1_save += p1
         p2_save += p2
-        score_save += df_sub.score
+        score_save += scaled_score
 
     val_acc = np.round((p1_save < p2_save).mean(), 3)
     print("Validation Accuracy:", val_acc)
-    score_save = MinMaxScaler().fit_transform(np.array(score_save).reshape(-1, 1))
+    # score_save = MinMaxScaler().fit_transform(np.array(score_save).reshape(-1, 1))
     df_sub.score = score_save
     df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
-
-# df_train.columns
-
-# np.sum(df_train.toxic)
-# np.sum(df_train.severe_toxic)
-
-# df_train[df_train.severe_toxic == 1][["toxic", "severe_toxic"]]
 
