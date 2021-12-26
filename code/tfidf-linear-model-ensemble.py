@@ -74,7 +74,7 @@ def train_models(df_concat):
     return tfidf_vec, ridge_m_list
 
 
-def preprocess(df_train, column_list):
+def merge_cols(df_train, column_list):
 
     # Apply toxicity
     for category in toxicity_dict:
@@ -82,25 +82,16 @@ def preprocess(df_train, column_list):
     df_train["y"] = df_train.loc[:, column_list].sum(axis=1)
     # set values to 1
     # df_train.loc[df_train[df_train["y"] > 0].index, "y"] = 1
-    df_train = df_train.rename(columns={"comment_text": "text"})
     # df_train = df_train.drop_duplicates(subset=["text"])
 
-    tqdm.pandas()
-    df_train["text"] = df_train["text"].progress_apply(text_cleaning)
     return df_train
 
 
-def validate_model(tfidf_vec_list, ridge_m_all):
-    df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv")
+def validate_model(df_val, tfidf_vec_list, ridge_m_all):
 
-    # <h2>Text cleaning</h2>
-    tqdm.pandas()
-    df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
-    df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
-
-    length = df_val.shape[0]
-    p1 = np.array([0.0] * length)
-    p2 = np.array([0.0] * length)
+    val_length = df_val.shape[0]
+    p1 = np.array([0.0] * val_length)
+    p2 = np.array([0.0] * val_length)
 
     for i, tfidf_vec in enumerate(tfidf_vec_list):
         X_less_toxic = tfidf_vec.transform(df_val["less_toxic"])
@@ -149,9 +140,7 @@ def get_trained_models(df_train):
 
 
 def predict_result(tfidf_vec_list, ridge_m_all):
-    df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
-    df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
-    df_sub["score"] = 0
+
     for i, tfidf_vec in enumerate(tfidf_vec_list):
         # <h2>Prediction</h2>
         X_test = tfidf_vec.transform(df_sub["text"])
@@ -184,18 +173,55 @@ if __name__ == "__main__":
     df_train = pd.read_csv(
         "../input/jigsaw-toxic-comment-classification-challenge/train.csv"
     )
+    df_train = df_train.rename(columns={"comment_text": "text"})
+    df_train["text"] = df_train["text"].progress_apply(text_cleaning)
 
-    column_list = list(df_train.columns)[2:8]
-    df_train = preprocess(df_train, column_list)
-    tfidf_vec_list, ridge_m_all = get_trained_models(df_train)
+    df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv")
+    df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
+    df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
 
-    # p1, p2 = validate_model(tfidf_vec_list, ridge_m_all)
-    # val_acc = np.round((p1 < p2).mean(), 3)
-    # print("Validation Accuracy:", val_acc)
+    df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
+    df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
+    df_sub["score"] = 0
 
-    df_sub = predict_result(tfidf_vec_list, ridge_m_all)
+    column_list_of_list = [
+        ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate",]
+    ]
+
+    # column_list_of_list = [
+    #     ["toxic"],
+    #     ["severe_toxic"],
+    #     ["obscene"],
+    #     ["threat"],
+    #     ["insult"],
+    #     ["identity_hate"],
+    # ]
+
+    train_length = df_train.shape[0]
+    val_length = df_val.shape[0]
+    sub_length = df_sub.shape[0]
+    p1_save = np.array([0.0] * val_length)
+    p2_save = np.array([0.0] * val_length)
+    score_save = np.array([0.0] * sub_length)
+
+    for column_list in column_list_of_list:
+
+        # column_list = list(df_train.columns)[2:8]
+        df_train = merge_cols(df_train, column_list)
+        tfidf_vec_list, ridge_m_all = get_trained_models(df_train)
+
+        p1, p2 = validate_model(df_val, tfidf_vec_list, ridge_m_all)
+        df_sub = predict_result(tfidf_vec_list, ridge_m_all)
+
+        p1_save += p1
+        p2_save += p2
+        score_save += df_sub.score
+
+    val_acc = np.round((p1_save < p2_save).mean(), 3)
+    print("Validation Accuracy:", val_acc)
+
+    df_sub.score = score_save
     df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
-
 
 # df_train.columns
 
