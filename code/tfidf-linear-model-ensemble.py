@@ -176,13 +176,16 @@ if __name__ == "__main__":
         "../input/jigsaw-toxic-comment-classification-challenge/train.csv"
     )
     df_train = df_train.rename(columns={"comment_text": "text"})
+    tqdm.pandas()
     df_train["text"] = df_train["text"].progress_apply(text_cleaning)
 
     df_val = pd.read_csv("../input/jigsaw-toxic-severity-rating/validation_data.csv")
+    tqdm.pandas()
     df_val["less_toxic"] = df_val["less_toxic"].progress_apply(text_cleaning)
     df_val["more_toxic"] = df_val["more_toxic"].progress_apply(text_cleaning)
 
     df_sub = pd.read_csv("../input/jigsaw-toxic-severity-rating/comments_to_score.csv")
+    tqdm.pandas()
     df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
     df_sub["score"] = 0
 
