@@ -57,7 +57,7 @@ def train_models(df_concat):
     # vectorized_text = normalize(vectorized_text, norm="l2", axis=1)
     # <h1>Fit Ridge</h1>
 
-    model = LogisticRegression(max_iter=100)
+    model = LogisticRegression(max_iter=200)
     y_col = (y_col > 0).astype(int)
     model.fit(vectorized_text, y_col)
     ridge_m_list = [model]
@@ -180,7 +180,7 @@ if __name__ == "__main__":
         "identity_hate": 1.5,
     }
 
-    n_folds = 2
+    n_folds = 5
     df_train = pd.read_csv(
         "../input/jigsaw-toxic-comment-classification-challenge/train.csv"
     )

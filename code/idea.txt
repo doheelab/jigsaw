@@ -1,1 +1,2 @@
-1. k-fold validation
+1. 현재 2-fold로 시도했으므로, 5-fold로 바꿔서 점수 보기
+2. 각 feature 마다 따로 모델 만들기
