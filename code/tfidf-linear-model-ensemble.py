@@ -59,20 +59,20 @@ def train_models(df_concat):
     # vectorized_text = normalize(vectorized_text, norm="l2", axis=1)
     # <h1>Fit Ridge</h1>
 
-    model = LogisticRegression(max_iter=200)
-    y_col = (y_col > 0).astype(int)
-    model.fit(vectorized_text, y_col)
-    ridge_m_list = [model]
-    # model1 = Ridge(alpha=0.5)
-    # model1.fit(vectorized_text, y_col)
+    # model = LogisticRegression(max_iter=200)
+    # y_col = (y_col > 0).astype(int)
+    # model.fit(vectorized_text, y_col)
+    # ridge_m_list = [model]
+    model1 = Ridge(alpha=0.5)
+    model1.fit(vectorized_text, y_col)
 
-    # model2 = Ridge(alpha=1)
-    # model2.fit(vectorized_text, y_col)
+    model2 = Ridge(alpha=1)
+    model2.fit(vectorized_text, y_col)
 
-    # model3 = Ridge(alpha=2)
-    # model3.fit(vectorized_text, y_col)
+    model3 = Ridge(alpha=2)
+    model3.fit(vectorized_text, y_col)
 
-    # ridge_m_list = [model1, model2, model3]
+    ridge_m_list = [model1, model2, model3]
     return tfidf_vec, ridge_m_list
 
 
@@ -105,8 +105,8 @@ def validate_model(df_val, tfidf_vec_list, ridge_m_all):
         ]:
             # p1 += model.predict(X_less_toxic)
             # p2 += model.predict(X_more_toxic)
-            p1 += model.predict_proba(X_less_toxic)[:, 1]
-            p2 += model.predict_proba(X_more_toxic)[:, 1]
+            p1 += model.predict(X_less_toxic)[:, 1]
+            p2 += model.predict(X_more_toxic)[:, 1]
     return p1, p2
 
 
@@ -153,7 +153,7 @@ def predict_result(tfidf_vec_list, ridge_m_all):
             * int(len(ridge_m_all) / n_folds) : (i + 1)
             * int(len(ridge_m_all) / n_folds)
         ]:
-            p3 += model.predict_proba(X_test)[:, 1] / (n_folds * len(ridge_m_all))
+            p3 += model.predict(X_test)[:, 1] / (n_folds * len(ridge_m_all))
         df_sub["score"] += p3
     # df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
     return df_sub
@@ -189,18 +189,18 @@ if __name__ == "__main__":
     df_sub["text"] = df_sub["text"].progress_apply(text_cleaning)
     df_sub["score"] = 0
 
-    column_list_of_list = [
-        ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate",]
-    ]
-
     # column_list_of_list = [
-    #     ["toxic"],
-    #     ["severe_toxic"],
-    #     ["obscene"],
-    #     ["threat"],
-    #     ["insult"],
-    #     ["identity_hate"],
+    #     ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate",]
     # ]
+
+    column_list_of_list = [
+        ["toxic"],
+        ["severe_toxic"],
+        ["obscene"],
+        ["threat"],
+        ["insult"],
+        ["identity_hate"],
+    ]
 
     train_length = df_train.shape[0]
     val_length = df_val.shape[0]
