@@ -103,10 +103,10 @@ def validate_model(df_val, tfidf_vec_list, ridge_m_all):
             * int(len(ridge_m_all) / n_folds) : (i + 1)
             * int(len(ridge_m_all) / n_folds)
         ]:
-            # p1 += model.predict(X_less_toxic)
-            # p2 += model.predict(X_more_toxic)
-            p1 += model.predict(X_less_toxic)[:, 1]
-            p2 += model.predict(X_more_toxic)[:, 1]
+            p1 += model.predict(X_less_toxic)
+            p2 += model.predict(X_more_toxic)
+            # p1 += model.predict(X_less_toxic)[:, 1]
+            # p2 += model.predict(X_more_toxic)[:, 1]
     return p1, p2
 
 
@@ -153,7 +153,8 @@ def predict_result(tfidf_vec_list, ridge_m_all):
             * int(len(ridge_m_all) / n_folds) : (i + 1)
             * int(len(ridge_m_all) / n_folds)
         ]:
-            p3 += model.predict(X_test)[:, 1] / (n_folds * len(ridge_m_all))
+            # p3 += model.predict(X_test)[:, 1] / (n_folds * len(ridge_m_all))
+            p3 += model.predict(X_test) / (n_folds * len(ridge_m_all))
         df_sub["score"] += p3
     # df_sub[["comment_id", "score"]].to_csv("../save/submission.csv", index=False)
     return df_sub
