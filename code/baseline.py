@@ -9,8 +9,6 @@ from sklearn.preprocessing import MinMaxScaler
 
 from tqdm.auto import tqdm
 
-import matplotlib.pyplot as plt
-
 
 def text_cleaning(text):
     """
@@ -68,7 +66,7 @@ def train_models(df_concat):
         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
     )
 
-    tfidf_vec.fit(df_concat[df_concat.y > 0]["text"])
+    tfidf_vec.fit(df_concat[c]["text"])
     vectorized_text = tfidf_vec.transform(df_concat["text"])
     y_col = df_concat["y"]
 
@@ -139,7 +137,11 @@ def get_trained_models(df_train):
     df_undersample_not_toxic = df_train[df_train["y"] == 0].sample(
         n=min_len * 2, random_state=402
     )
-    df_concat = pd.concat([df_train[df_train["y"] > 0], df_undersample_not_toxic])
+    df_concat = pd.concat([df_train[df_train["y"] > 0.1], df_undersample_not_toxic])
+
+    df_train_ = load_ruddit_data()
+    df_train_.y = (df_train_.y) ** 2
+    df_concat = pd.concat([df_concat, df_train_], axis=0)
 
     folds = KFold(n_splits=n_folds, shuffle=True, random_state=2021)
 
@@ -238,8 +240,6 @@ if __name__ == "__main__":
 
         df_train = merge_cols(df_train, column_list)
         df_train = df_train[["text", "y"]]
-        df_train_ = load_ruddit_data()
-        df_train = pd.concat([df_train, df_train_], axis=0)
 
         (tfidf_vec_list, ridge_m_all) = get_trained_models(df_train)
 
@@ -255,6 +255,7 @@ if __name__ == "__main__":
     score_save = MinMaxScaler().fit_transform(np.array(score_save).reshape(-1, 1))
     df_sub.score = score_save
     df_sub[["comment_id", "score"]].to_csv("./submission.csv", index=False)
+
 
 # df_train.columns
 
