@@ -68,7 +68,8 @@ def train_models(df_concat):
         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
     )
 
-    vectorized_text = tfidf_vec.fit_transform(df_concat["text"])
+    tfidf_vec.fit(df_concat[df_concat.y > 0]["text"])
+    vectorized_text = tfidf_vec.transform(df_concat["text"])
     y_col = df_concat["y"]
 
     # vectorized_text = normalize(vectorized_text, norm="l2", axis=1)
@@ -203,15 +204,6 @@ if __name__ == "__main__":
         "severe_toxic": 1.5,
         "identity_hate": 1.5,
     }
-
-    # toxicity_dict = {
-    #     "obscene": 1,
-    #     "toxic": 1,
-    #     "threat": 1,
-    #     "insult": 1,
-    #     "severe_toxic": 2,
-    #     "identity_hate": 1,
-    # }
 
     n_folds = 5
     df_train = pd.read_csv(
