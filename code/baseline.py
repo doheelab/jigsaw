@@ -238,8 +238,8 @@ if __name__ == "__main__":
 
         df_train = merge_cols(df_train, column_list)
         df_train = df_train[["text", "y"]]
-        # df_train_ = load_ruddit_data()
-        # df_train = pd.concat([df_train, df_train_],axis=0)
+        df_train_ = load_ruddit_data()
+        df_train = pd.concat([df_train, df_train_], axis=0)
 
         (tfidf_vec_list, ridge_m_all) = get_trained_models(df_train)
 
