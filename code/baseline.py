@@ -9,6 +9,8 @@ from sklearn.preprocessing import MinMaxScaler
 
 from tqdm.auto import tqdm
 
+import matplotlib.pyplot as plt
+
 
 def text_cleaning(text):
     """
@@ -45,6 +47,19 @@ def text_cleaning(text):
     text = text.strip()  # remove spaces at the beginning and at the end of string
 
     return text
+
+
+from sklearn.metrics import mean_squared_error
+
+
+def validate(df_valid, tfidf_vec, ridge_m_list):
+    vectorized_text = tfidf_vec.transform(df_valid["text"])
+    y_col = df_valid["y"]
+    pred_col = np.array([0.0] * df_valid.shape[0])
+    for model in ridge_m_list:
+        pred_col += model.predict(vectorized_text) / len(ridge_m_list)
+    RMSE = mean_squared_error(y_col, pred_col) ** 0.5
+    return np.round(RMSE, 3)
 
 
 def train_models(df_concat):
@@ -129,6 +144,7 @@ def get_trained_models(df_train):
 
     tfidf_vec_list = []
     ridge_m_all = []
+    RMSE_list = []
 
     # run model
     for fold_, (trn_idx, val_idx) in enumerate(
@@ -136,8 +152,11 @@ def get_trained_models(df_train):
     ):
         X_tr, X_val = df_concat.iloc[trn_idx], df_concat.iloc[val_idx]
         tfidf_vec, ridge_m_list = train_models(X_tr)
+        RMSE = validate(X_val, tfidf_vec, ridge_m_list)
+        RMSE_list.append(RMSE)
         tfidf_vec_list.append(tfidf_vec)
         ridge_m_all += ridge_m_list
+    print("RMSE:", np.round(np.mean(RMSE_list), 3))
     return tfidf_vec_list, ridge_m_all
 
 
@@ -160,6 +179,19 @@ def predict_result(tfidf_vec_list, ridge_m_all):
     return df_sub
 
 
+def load_ruddit_data():
+    df_ = pd.read_csv("../input/ruddit-jigsaw-dataset/ruddit_with_text.csv")
+
+    tqdm.pandas()
+    df_["txt"] = df_["txt"].progress_apply(text_cleaning)
+    df_ = df_[["txt", "offensiveness_score"]].rename(
+        columns={"txt": "text", "offensiveness_score": "y"}
+    )
+    df_["y"] = (df_["y"] - df_.y.min()) / (df_.y.max() - df_.y.min())
+    df_ = df_[["text", "y"]]
+    return df_
+
+
 if __name__ == "__main__":
 
     # Create a score that measure how much toxic is a comment
@@ -171,6 +203,15 @@ if __name__ == "__main__":
         "severe_toxic": 1.5,
         "identity_hate": 1.5,
     }
+
+    # toxicity_dict = {
+    #     "obscene": 1,
+    #     "toxic": 1,
+    #     "threat": 1,
+    #     "insult": 1,
+    #     "severe_toxic": 2,
+    #     "identity_hate": 1,
+    # }
 
     n_folds = 5
     df_train = pd.read_csv(
@@ -204,7 +245,11 @@ if __name__ == "__main__":
     for column_list in column_list_of_list:
 
         df_train = merge_cols(df_train, column_list)
-        tfidf_vec_list, ridge_m_all = get_trained_models(df_train)
+        df_train = df_train[["text", "y"]]
+        # df_train_ = load_ruddit_data()
+        # df_train = pd.concat([df_train, df_train_],axis=0)
+
+        (tfidf_vec_list, ridge_m_all) = get_trained_models(df_train)
 
         p1, p2 = validate_model(df_val, tfidf_vec_list, ridge_m_all)
         df_sub = predict_result(tfidf_vec_list, ridge_m_all)
