@@ -121,7 +121,7 @@ def save_ruddit_df():
 
     # ruddit_path = csv(f"{ruddit_path}/ruddit_with_text.csv")# ## Ruddit data
 
-    df_ = pd.read_csv(f"{ruddit_path}/ruddit_with_text.cs)
+    df_ = pd.read_csv(f"{ruddit_path}/ruddit_with_text.csv")
     print(df_.shape)
     df_ = df_[["txt", "offensiveness_score"]].rename(
         columns={"txt": "text", "offensiveness_score": "y"}
