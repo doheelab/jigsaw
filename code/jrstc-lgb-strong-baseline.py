@@ -554,3 +554,5 @@ valid_loader_more = DataLoader(
 preds_less = inference(MODEL_PATHS, valid_loader_less, CONFIG["device"])
 preds_more = inference(MODEL_PATHS, valid_loader_more, CONFIG["device"])
 
+# 0.74422
+(preds_less<preds_more).mean()
