@@ -120,8 +120,8 @@ def add_df_sub(df):
 def get_nan_index_list(df):
     df = df.reset_index(drop=True)
     nan_index_list = list(df[df.y==np.nan].index)
-    if len(nan_index_list) == 0 and len(list(df.y.map(np.isnan).index))>0:
-        nan_index_list = list(df.y.map(np.isnan).index)
+    if len(nan_index_list) == 0 and len(list(df[df.y.map(np.isnan)]))>0:
+        nan_index_list = list(df[df.y.map(np.isnan)].index)
     df.dropna(inplace=True)
     return df, nan_index_list
 
@@ -129,21 +129,21 @@ def save_raw_df(df):
     frac_1 = 0.3
     frac_1_factor = 1.2
 
-    df = add_df_sub(df)
+    # df = add_df_sub(df)
 
     for fld in range(n_folds):
         print(f"Fold: {fld}")
-        tmp1 = df[df.y > 0].sample(frac=frac_1, random_state=10 * (fld + 1))
-        tmp2 = df[df.y == 0].sample(
+        df_sampled1 = df[df.y > 0].sample(frac=frac_1, random_state=10 * (fld + 1))
+        df_sampled2 = df[df.y == 0].sample(
             n=int(len(df[df.y > 0]) * frac_1 * frac_1_factor),
             random_state=10 * (fld + 1),
         )
-        tmp_df = pd.concat([tmp1, tmp2], axis=0).sample(
+        df_concat = pd.concat([df_sampled1, df_sampled2], axis=0).sample(
             frac=1, random_state=10 * (fld + 1)
         )
-        tmp_df.to_csv(f"{save_dir}/df_fld{fld}.csv", index=False)
-        print(tmp_df.shape)
-        print(tmp_df["y"].value_counts())
+        df_concat.to_csv(f"{save_dir}/df_fld{fld}.csv", index=False)
+        print(df_concat.shape)
+        print(df_concat["y"].value_counts())
 
 
 def save_cleaned_df(df):
@@ -152,10 +152,10 @@ def save_cleaned_df(df):
     frac_1 = 0.3
     frac_1_factor = 1.2
 
-    df = add_df_sub(df)
+    # df = add_df_sub(df)
 
     for fld in range(n_folds):
-        tmp_df = pd.concat(
+        df_concat = pd.concat(
             [
                 df[df.y > 0].sample(frac=frac_1, random_state=10 * (fld + 1)),
                 df[df.y == 0].sample(
@@ -165,9 +165,9 @@ def save_cleaned_df(df):
             ],
             axis=0,
         ).sample(frac=1, random_state=10 * (fld + 1))
-        tmp_df.to_csv(f"{save_dir}/df_clean_fld{fld}.csv", index=False)
-        print(tmp_df.shape)
-        print(tmp_df["y"].value_counts())
+        df_concat.to_csv(f"{save_dir}/df_clean_fld{fld}.csv", index=False)
+        print(df_concat.shape)
+        print(df_concat["y"].value_counts())
 
 
 
@@ -184,17 +184,17 @@ def save_ruddit_df():
     df_["y"] = (df_["y"] - df_.y.min()) / (df_.y.max() - df_.y.min())
 #     df_.y.hist()
 
-    df_ = add_df_sub(df_)
+    # df_ = add_df_sub(df_)
 
     # # Create 3 versions of data
     n_folds = 7
     frac_1 = 0.7
     for fld in range(n_folds):
         print(f"Fold: {fld}")
-        tmp_df = df_.sample(frac=frac_1, random_state=10 * (fld + 1))
-        tmp_df.to_csv(f"{save_dir}/df2_fld{fld}.csv", index=False)
-        print(tmp_df.shape)
-        print(tmp_df["y"].value_counts())
+        df_sampled = df_.sample(frac=frac_1, random_state=10 * (fld + 1))
+        df_sampled.to_csv(f"{save_dir}/df2_fld{fld}.csv", index=False)
+        print(df_sampled.shape)
+        print(df_sampled["y"].value_counts())
 
 
 save_cleaned_df(df)
