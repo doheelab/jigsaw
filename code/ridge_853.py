@@ -16,16 +16,51 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import warnings
 import copy
 
-# to change
+import numpy as np
+from scipy.sparse import csr_matrix
+from nltk.corpus import stopwords
 
+stop = stopwords.words("english")
+warnings.filterwarnings("ignore")
+
+pd.options.display.max_colwidth = 300
+
+# to change
 # save_dir = "/kaggle/working"
 save_dir = "../save"
 
 
+def delete_from_csr(mat, row_indices=[], col_indices=[]):
+    """
+    Remove the rows (denoted by ``row_indices``) and columns (denoted by ``col_indices``) from the CSR sparse matrix ``mat``.
+    WARNING: Indices of altered axes are reset in the returned matrix
+    """
+    if not isinstance(mat, csr_matrix):
+        raise ValueError("works only for CSR format -- use .tocsr() first")
 
-warnings.filterwarnings("ignore")
+    rows = []
+    cols = []
+    if row_indices:
+        rows = list(row_indices)
+    if col_indices:
+        cols = list(col_indices)
 
-pd.options.display.max_colwidth = 300
+    if len(rows) > 0 and len(cols) > 0:
+        row_mask = np.ones(mat.shape[0], dtype=bool)
+        row_mask[rows] = False
+        col_mask = np.ones(mat.shape[1], dtype=bool)
+        col_mask[cols] = False
+        return mat[row_mask][:,col_mask]
+    elif len(rows) > 0:
+        mask = np.ones(mat.shape[0], dtype=bool)
+        mask[rows] = False
+        return mat[mask]
+    elif len(cols) > 0:
+        mask = np.ones(mat.shape[1], dtype=bool)
+        mask[cols] = False
+        return mat[:,mask]
+    else:
+        return mat
 
 
 # # Training data
@@ -45,25 +80,11 @@ df["y"] = (
 df["y"] = df["y"] / df["y"].max()
 df = df[["comment_text", "y"]].rename(columns={"comment_text": "text"})
 df.sample(5)
-
 df["y"].value_counts()
 
 # ## Create 3 versions of the data
 n_folds = 7
 ruddit_path = "../input/ruddit-jigsaw-dataset/Dataset"
-
-
-
-
-# # Create 3 versions of __clean__ data
-import nltk
-from nltk.corpus import stopwords
-
-stop = stopwords.words("english")
-lemmatizer = nltk.stem.WordNetLemmatizer()
-
-# def lemmatize_text(text): return [lemmatizer.lemmatize(w) for w in text]
-
 
 def clean(data, col):
     data[col] = data[col].str.replace(r"what's", "what is ")
@@ -96,6 +117,13 @@ def add_df_sub(df):
     return pd.concat([df, df_sub_to_add], axis=0)
 
 
+def get_nan_index_list(df):
+    df = df.reset_index(drop=True)
+    nan_index_list = list(df[df.y==np.nan].index)
+    if len(nan_index_list) == 0 and len(list(df.y.map(np.isnan).index))>0:
+        nan_index_list = list(df.y.map(np.isnan).index)
+    df.dropna(inplace=True)
+    return df, nan_index_list
 
 def save_raw_df(df):
     frac_1 = 0.3
@@ -203,12 +231,7 @@ print(df_val["upper_1"].mean(), df_val["upper_1"].std())
 print(df_val["upper_2"].mean(), df_val["upper_2"].std())
 df_val["upper_1"].hist(bins=100)
 df_val["upper_2"].hist(bins=100)
-
-
-# %%
 df_val['upper_1'].head(3)
-
-# %%
 
 # ## Train pipeline
 #
@@ -218,6 +241,7 @@ df_val['upper_1'].head(3)
 # - Predict on test data
 
 # ### Toxic data
+
 
 
 def train_on_raw_df():
@@ -231,34 +255,50 @@ def train_on_raw_df():
             f" ****************************** FOLD: {fld} ******************************"
         )
         df = pd.read_csv(f"{save_dir}/df_fld{fld}.csv")
-        df.dropna(inplace=True)
         print(df.shape)
 
-        features = FeatureUnion(
-            [
-                (
-                    "vect3",
-                    TfidfVectorizer(
+        tfidf_model = TfidfVectorizer(
                         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
-                    ),
-                ),
-            ]
-        )
-        pipeline = Pipeline([("features", features), ("clf", Ridge()),])
-        print("\nTrain:")
-        pipeline.fit(df["text"], df["y"])
-        print(
-            "\nTotal number of features:", len(pipeline["features"].get_feature_names())
-        )
-        # feature_wts = sorted(list(zip(pipeline['features'].get_feature_names(), np.round(pipeline['clf'].coef_,2) )), key = lambda x:x[1], reverse=True)
-        # pprint(feature_wts[:30])
+                    )
+        tfidf_model.fit(df.text)
+        embedded_text = tfidf_model.transform(df.text)
+        df_nan_removed, indices_list = get_nan_index_list(df)
+        embedded_text = delete_from_csr(embedded_text, indices_list)
+        ridge_model = Ridge()
+        ridge_model.fit(embedded_text, df_nan_removed["y"])
 
-        print("\npredict validation data ")
-        val_preds_arr1[:, fld] = pipeline.predict(df_val["less_toxic"])
-        val_preds_arr2[:, fld] = pipeline.predict(df_val["more_toxic"])
+        val_preds_arr1[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["less_toxic"]))
+        val_preds_arr2[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["more_toxic"]))
+        test_preds_arr[:, fld] = ridge_model.predict(tfidf_model.transform(df_sub["text"]))
 
-        print("\npredict test data ")
-        test_preds_arr[:, fld] = pipeline.predict(df_sub["text"])
+        
+        # features = FeatureUnion(
+        #     [
+        #         (
+        #             "vect3",
+        #             TfidfVectorizer(
+        #                 min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
+        #             ),
+        #         ),
+        #     ]
+        # )
+
+
+        # pipeline = Pipeline([("features", features), ("clf", Ridge()),])
+        # print("\nTrain:")
+        # pipeline.fit(df["text"], df["y"])
+        # print(
+        #     "\nTotal number of features:", len(pipeline["features"].get_feature_names())
+        # )
+        # # feature_wts = sorted(list(zip(pipeline['features'].get_feature_names(), np.round(pipeline['clf'].coef_,2) )), key = lambda x:x[1], reverse=True)
+        # # pprint(feature_wts[:30])
+
+        # print("\npredict validation data ")
+        # val_preds_arr1[:, fld] = pipeline.predict(df_val["less_toxic"])
+        # val_preds_arr2[:, fld] = pipeline.predict(df_val["more_toxic"])
+
+        # print("\npredict test data ")
+        # test_preds_arr[:, fld] = pipeline.predict(df_sub["text"])
     return val_preds_arr1, val_preds_arr2, test_preds_arr
 
 
@@ -275,40 +315,26 @@ def train_on_clean_data():
             f" ****************************** FOLD: {fld} ******************************"
         )
         df = pd.read_csv(f"{save_dir}/df_clean_fld{fld}.csv")
-        df.dropna(inplace=True)
         print(df.shape)
 
-        features = FeatureUnion(
-            [
-                (
-                    "vect3",
-                    TfidfVectorizer(
+        tfidf_model = TfidfVectorizer(
                         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
-                    ),
-                ),
-            ]
-        )
-        pipeline = Pipeline([("features", features), ("clf", Ridge()),])
-        print("\nTrain:")
-        pipeline.fit(df["text"], df["y"])
-        print(
-            "\nTotal number of features:", len(pipeline["features"].get_feature_names())
-        )
-        # feature_wts = sorted(list(zip(pipeline['features'].get_feature_names(), np.round(pipeline['clf'].coef_,2) )), key = lambda x:x[1], reverse=True)
-        # pprint(feature_wts[:30])
+                    )
+        tfidf_model.fit(df.text)
+        embedded_text = tfidf_model.transform(df.text)
+        df_nan_removed, indices_list = get_nan_index_list(df)
+        embedded_text = delete_from_csr(embedded_text, indices_list)
+        ridge_model = Ridge()
+        ridge_model.fit(embedded_text, df_nan_removed["y"])
 
-        print("\npredict validation data ")
-        val_preds_arr1c[:, fld] = pipeline.predict(df_val["less_toxic"])
-        val_preds_arr2c[:, fld] = pipeline.predict(df_val["more_toxic"])
+        val_preds_arr1c[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["less_toxic"]))
+        val_preds_arr2c[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["more_toxic"]))
+        test_preds_arrc[:, fld] = ridge_model.predict(tfidf_model.transform(df_sub["text"]))
 
-        print("\npredict test data ")
-        test_preds_arrc[:, fld] = pipeline.predict(df_sub["text"])
     return val_preds_arr1c, val_preds_arr2c, test_preds_arrc
 
 
 # ## Ruddit data pipeline
-
-
 def train_on_ruddit_data():
 
     val_preds_arr1_ = np.zeros((df_val.shape[0], n_folds))
@@ -321,77 +347,59 @@ def train_on_ruddit_data():
             f" ****************************** FOLD: {fld} ******************************"
         )
         df = pd.read_csv(f"{save_dir}/df2_fld{fld}.csv")
-        df.dropna(inplace=True)
         print(df.shape)
 
-        features = FeatureUnion(
-            [
-                (
-                    "vect3",
-                    TfidfVectorizer(
+        tfidf_model = TfidfVectorizer(
                         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
-                    ),
-                ),
-            ]
-        )
-        pipeline = Pipeline([("features", features), ("clf", Ridge()),])
-        print("\nTrain:")
-        pipeline.fit(df["text"], df["y"])
+                    )
+        tfidf_model.fit(df.text)
+        embedded_text = tfidf_model.transform(df.text)
+        df_nan_removed, indices_list = get_nan_index_list(df)
+        embedded_text = delete_from_csr(embedded_text, indices_list)
+        ridge_model = Ridge()
+        ridge_model.fit(embedded_text, df_nan_removed["y"])
 
-        print(
-            "\nTotal number of features:", len(pipeline["features"].get_feature_names())
-        )
-        # feature_wts = sorted(list(zip(pipeline['features'].get_feature_names(), np.round(pipeline['clf'].coef_,2) )), key = lambda x:x[1], reverse=True)
-        # pprint(feature_wts[:30])
+        val_preds_arr1_[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["less_toxic"]))
+        val_preds_arr2_[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["more_toxic"]))
+        test_preds_arr_[:, fld] = ridge_model.predict(tfidf_model.transform(df_sub["text"]))
 
-        print("\npredict validation data ")
-        val_preds_arr1_[:, fld] = pipeline.predict(df_val["less_toxic"])
-        val_preds_arr2_[:, fld] = pipeline.predict(df_val["more_toxic"])
-
-        print("\npredict test data ")
-        test_preds_arr_[:, fld] = pipeline.predict(df_sub["text"])
     return val_preds_arr1_, val_preds_arr2_, test_preds_arr_
 
 
-val_preds_arr1, val_preds_arr2, test_preds_arr = train_on_raw_df()
-val_preds_arr1c, val_preds_arr2c, test_preds_arrc = train_on_clean_data()
-val_preds_arr1_, val_preds_arr2_, test_preds_arr_ = train_on_ruddit_data()
+def validate_models():
 
+    print(" Toxic CLEAN data ")
+    p5 = val_preds_arr1c.mean(axis=1)
+    p6 = val_preds_arr2c.mean(axis=1)
 
-print(" Toxic CLEAN data ")
-p5 = val_preds_arr1c.mean(axis=1)
-p6 = val_preds_arr2c.mean(axis=1)
+    print(f"Validation Accuracy is { np.round((p5 < p6).mean() * 100,2)}")
 
-print(f"Validation Accuracy is { np.round((p5 < p6).mean() * 100,2)}")
+    print(" Toxic CLEAN data new ")
+    p5 = val_preds_arr1c.mean(axis=1)
+    p6 = val_preds_arr2c.mean(axis=1)
 
-# %%
-print(" Toxic CLEAN data new ")
-p5 = val_preds_arr1c.mean(axis=1)
-p6 = val_preds_arr2c.mean(axis=1)
+    print(f"Validation Accuracy is { np.round((p5 < p6).mean() * 100,2)}")
 
-print(f"Validation Accuracy is { np.round((p5 < p6).mean() * 100,2)}")
+    # # Validate the pipeline
 
-# %% [markdown]
-# # Validate the pipeline
+    print(" Toxic data ")
+    p1 = val_preds_arr1.mean(axis=1)
+    p2 = val_preds_arr2.mean(axis=1)
 
-# %%
-print(" Toxic data ")
-p1 = val_preds_arr1.mean(axis=1)
-p2 = val_preds_arr2.mean(axis=1)
+    print(f"Validation Accuracy is { np.round((p1 < p2).mean() * 100,2)}")
 
-print(f"Validation Accuracy is { np.round((p1 < p2).mean() * 100,2)}")
+    print(" Ruddit data ")
+    p3 = val_preds_arr1_.mean(axis=1)
+    p4 = val_preds_arr2_.mean(axis=1)
 
-print(" Ruddit data ")
-p3 = val_preds_arr1_.mean(axis=1)
-p4 = val_preds_arr2_.mean(axis=1)
+    print(f"Validation Accuracy is { np.round((p3 < p4).mean() * 100,2)}")
 
-print(f"Validation Accuracy is { np.round((p3 < p4).mean() * 100,2)}")
+    print(" Toxic CLEAN data ")
+    p5 = val_preds_arr1c.mean(axis=1)
+    p6 = val_preds_arr2c.mean(axis=1)
 
-print(" Toxic CLEAN data ")
-p5 = val_preds_arr1c.mean(axis=1)
-p6 = val_preds_arr2c.mean(axis=1)
-
-print(f"Validation Accuracy is { np.round((p5 < p6).mean() * 100,2)}")
+    print(f"Validation Accuracy is { np.round((p5 < p6).mean() * 100,2)}")
+    return p1, p2, p3, p4, p5, p6
 
 
 def find_weights():
@@ -411,7 +419,11 @@ def find_weights():
     p2_wt = w1 * p2 + w2 * p4 + w3 * p6
     return w1, w2, w3, p1_wt, p2_wt
 
+val_preds_arr1, val_preds_arr2, test_preds_arr = train_on_raw_df()
+val_preds_arr1c, val_preds_arr2c, test_preds_arrc = train_on_clean_data()
+val_preds_arr1_, val_preds_arr2_, test_preds_arr_ = train_on_ruddit_data()
 
+p1, p2, p3, p4, p5, p6 = validate_models()
 w1, w2, w3, p1_wt, p2_wt = find_weights()
 
 # ## Analyze bad predictions
