@@ -212,27 +212,6 @@ class LengthUpperTransformer(BaseEstimator, TransformerMixin):
         return ["lngth_uppercase"]
 
 
-df_val["upper_1"] = np.array(
-    LengthUpperTransformer().transform(df_val["less_toxic"]).todense()
-).reshape(-1, 1)
-df_val["upper_2"] = np.array(
-    LengthUpperTransformer().transform(df_val["more_toxic"]).todense()
-).reshape(-1, 1)
-print(df_val["upper_1"].mean(), df_val["upper_1"].std())
-print(df_val["upper_2"].mean(), df_val["upper_2"].std())
-df_val["upper_1"].hist(bins=100)
-df_val["upper_2"].hist(bins=100)
-df_val['upper_1'].head(3)
-
-# ## Train pipeline
-#
-# - Load folds data
-# - train pipeline
-# - Predict on validation data
-# - Predict on test data
-
-# ### Toxic data
-
 fld = 0
 df = pd.read_csv(f"{save_dir}/df_clean_fld{fld}.csv")
 df.y
@@ -265,37 +244,9 @@ def train_on_raw_df():
         test_preds_arr[:, fld] = ridge_model.predict(tfidf_model.transform(df_sub["text"]))
 
         
-        # features = FeatureUnion(
-        #     [
-        #         (
-        #             "vect3",
-        #             TfidfVectorizer(
-        #                 min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
-        #             ),
-        #         ),
-        #     ]
-        # )
-
-
-        # pipeline = Pipeline([("features", features), ("clf", Ridge()),])
-        # print("\nTrain:")
-        # pipeline.fit(df["text"], df["y"])
-        # print(
-        #     "\nTotal number of features:", len(pipeline["features"].get_feature_names())
-        # )
-        # # feature_wts = sorted(list(zip(pipeline['features'].get_feature_names(), np.round(pipeline['clf'].coef_,2) )), key = lambda x:x[1], reverse=True)
-        # # pprint(feature_wts[:30])
-
-        # print("\npredict validation data ")
-        # val_preds_arr1[:, fld] = pipeline.predict(df_val["less_toxic"])
-        # val_preds_arr2[:, fld] = pipeline.predict(df_val["more_toxic"])
-
-        # print("\npredict test data ")
-        # test_preds_arr[:, fld] = pipeline.predict(df_sub["text"])
     return val_preds_arr1, val_preds_arr2, test_preds_arr
 
 
-# # Toxic __clean__ data
 def train_on_clean_data():
 
     val_preds_arr1c = np.zeros((df_val.shape[0], n_folds))
