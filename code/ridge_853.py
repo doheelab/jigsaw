@@ -29,7 +29,6 @@ pd.options.display.max_colwidth = 300
 # save_dir = "/kaggle/working"
 save_dir = "../save"
 
-
 def delete_from_csr(mat, row_indices=[], col_indices=[]):
     """
     Remove the rows (denoted by ``row_indices``) and columns (denoted by ``col_indices``) from the CSR sparse matrix ``mat``.
@@ -110,10 +109,11 @@ def clean(data, col):
     )
     return data
 
-def add_df_sub(df):
+def add_df_sub(df, random_state):
     df_sub_to_add = copy.copy(df_sub)
     df_sub_to_add['y'] = np.nan
     df_sub_to_add = df_sub_to_add[['text', 'y']]
+    df_sub_to_add = df_sub_to_add.sample(frac=0.7, random_state=random_state)
     return pd.concat([df, df_sub_to_add], axis=0)
 
 
@@ -129,8 +129,6 @@ def save_raw_df(df):
     frac_1 = 0.3
     frac_1_factor = 1.2
 
-    df = add_df_sub(df)
-
     for fld in range(n_folds):
         print(f"Fold: {fld}")
         df_sampled1 = df[df.y > 0].sample(frac=frac_1, random_state=10 * (fld + 1))
@@ -141,18 +139,15 @@ def save_raw_df(df):
         df_concat = pd.concat([df_sampled1, df_sampled2], axis=0).sample(
             frac=1, random_state=10 * (fld + 1)
         )
+        df_concat = add_df_sub(df_concat, 10 * (fld + 1))
         df_concat.to_csv(f"{save_dir}/df_fld{fld}.csv", index=False)
         print(df_concat.shape)
         print(df_concat["y"].value_counts())
-
 
 def save_cleaned_df(df):
     n_folds = 7
     frac_1 = 0.3
     frac_1_factor = 1.2
-
-    df = add_df_sub(df)
-    df = clean(df, "text")
 
     for fld in range(n_folds):
         df_concat = pd.concat(
@@ -165,11 +160,11 @@ def save_cleaned_df(df):
             ],
             axis=0,
         ).sample(frac=1, random_state=10 * (fld + 1))
+        df_concat = add_df_sub(df_concat, 10 * (fld + 1))
+        df_concat = clean(df_concat, "text")
         df_concat.to_csv(f"{save_dir}/df_clean_fld{fld}.csv", index=False)
         print(df_concat.shape)
         print(df_concat["y"].value_counts())
-
-
 
 
 
@@ -183,8 +178,6 @@ def save_ruddit_df():
     )
     df_["y"] = (df_["y"] - df_.y.min()) / (df_.y.max() - df_.y.min())
 #     df_.y.hist()
-
-    # df_ = add_df_sub(df_)
 
     # # Create 3 versions of data
     n_folds = 7
@@ -240,7 +233,9 @@ df_val['upper_1'].head(3)
 
 # ### Toxic data
 
-
+fld = 0
+df = pd.read_csv(f"{save_dir}/df_clean_fld{fld}.csv")
+df.y
 
 def train_on_raw_df():
     val_preds_arr1 = np.zeros((df_val.shape[0], n_folds))
