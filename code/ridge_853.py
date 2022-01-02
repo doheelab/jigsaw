@@ -212,9 +212,25 @@ class LengthUpperTransformer(BaseEstimator, TransformerMixin):
         return ["lngth_uppercase"]
 
 
-fld = 0
-df = pd.read_csv(f"{save_dir}/df_clean_fld{fld}.csv")
-df.y
+# fld = 0
+# df = pd.read_csv(f"{save_dir}/df_clean_fld{fld}.csv")
+# df.y
+
+# em_vec = embedded_text.todense()
+# np.mean(np.sum(em_vec[:10709, :], axis=1))
+# np.mean(np.sum(em_vec[10709:, :], axis=1))
+
+def get_small_coef_col_list(ridge_model):
+    coef_arr = ridge_model.coef_
+    least_coef = np.quantile(abs(coef_arr), 0.2)
+    small_coef_col_list = [i for i, val in enumerate(coef_arr) if abs(val) < least_coef]
+    return small_coef_col_list
+
+
+def remove_small_coef(embedded_text, small_coef_col_list):
+    light_embedded_text = delete_from_csr(embedded_text, col_indices = small_coef_col_list)
+    return light_embedded_text
+
 
 def train_on_raw_df():
     val_preds_arr1 = np.zeros((df_val.shape[0], n_folds))
@@ -239,9 +255,16 @@ def train_on_raw_df():
         ridge_model = Ridge()
         ridge_model.fit(embedded_text, df_nan_removed["y"])
 
-        val_preds_arr1[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["less_toxic"]))
-        val_preds_arr2[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["more_toxic"]))
-        test_preds_arr[:, fld] = ridge_model.predict(tfidf_model.transform(df_sub["text"]))
+        # retrain
+        small_coef_col_list = get_small_coef_col_list(ridge_model)
+        embedded_text = remove_small_coef(embedded_text, small_coef_col_list)
+
+        ridge_model = Ridge()
+        ridge_model.fit(embedded_text, df_nan_removed["y"])
+
+        val_preds_arr1[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_val["less_toxic"]), small_coef_col_list))
+        val_preds_arr2[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_val["more_toxic"]), small_coef_col_list))
+        test_preds_arr[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_sub["text"]), small_coef_col_list))
 
         
     return val_preds_arr1, val_preds_arr2, test_preds_arr
@@ -272,9 +295,17 @@ def train_on_clean_data():
         ridge_model = Ridge()
         ridge_model.fit(embedded_text, df_nan_removed["y"])
 
-        val_preds_arr1c[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["less_toxic"]))
-        val_preds_arr2c[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["more_toxic"]))
-        test_preds_arrc[:, fld] = ridge_model.predict(tfidf_model.transform(df_sub["text"]))
+        # retrain
+        small_coef_col_list = get_small_coef_col_list(ridge_model)
+        embedded_text = remove_small_coef(embedded_text, small_coef_col_list)
+
+        ridge_model = Ridge()
+        ridge_model.fit(embedded_text, df_nan_removed["y"])
+
+
+        val_preds_arr1c[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_val["less_toxic"]), small_coef_col_list))
+        val_preds_arr2c[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_val["more_toxic"]), small_coef_col_list))
+        test_preds_arrc[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_sub["text"]), small_coef_col_list))
 
     return val_preds_arr1c, val_preds_arr2c, test_preds_arrc
 
@@ -304,9 +335,16 @@ def train_on_ruddit_data():
         ridge_model = Ridge()
         ridge_model.fit(embedded_text, df_nan_removed["y"])
 
-        val_preds_arr1_[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["less_toxic"]))
-        val_preds_arr2_[:, fld] = ridge_model.predict(tfidf_model.transform(df_val["more_toxic"]))
-        test_preds_arr_[:, fld] = ridge_model.predict(tfidf_model.transform(df_sub["text"]))
+        # retrain
+        small_coef_col_list = get_small_coef_col_list(ridge_model)
+        embedded_text = remove_small_coef(embedded_text, small_coef_col_list)
+
+        ridge_model = Ridge()
+        ridge_model.fit(embedded_text, df_nan_removed["y"])
+
+        val_preds_arr1_[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_val["less_toxic"]), small_coef_col_list))
+        val_preds_arr2_[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_val["more_toxic"]), small_coef_col_list))
+        test_preds_arr_[:, fld] = ridge_model.predict(remove_small_coef(tfidf_model.transform(df_sub["text"]), small_coef_col_list))
 
     return val_preds_arr1_, val_preds_arr2_, test_preds_arr_
 
