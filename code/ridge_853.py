@@ -129,7 +129,7 @@ def save_raw_df(df):
     frac_1 = 0.3
     frac_1_factor = 1.2
 
-    # df = add_df_sub(df)
+    df = add_df_sub(df)
 
     for fld in range(n_folds):
         print(f"Fold: {fld}")
@@ -147,12 +147,12 @@ def save_raw_df(df):
 
 
 def save_cleaned_df(df):
-    df = clean(df, "text")
     n_folds = 7
     frac_1 = 0.3
     frac_1_factor = 1.2
 
-    # df = add_df_sub(df)
+    df = add_df_sub(df)
+    df = clean(df, "text")
 
     for fld in range(n_folds):
         df_concat = pd.concat(
@@ -196,11 +196,9 @@ def save_ruddit_df():
         print(df_sampled.shape)
         print(df_sampled["y"].value_counts())
 
-
 save_cleaned_df(df)
 save_raw_df(df)
 save_ruddit_df()
-
 
 
 # Create Sklearn Pipeline with
@@ -260,7 +258,7 @@ def train_on_raw_df():
         tfidf_model = TfidfVectorizer(
                         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
                     )
-        tfidf_model.fit(df.text)
+        tfidf_model.fit(df_sub.text)
         embedded_text = tfidf_model.transform(df.text)
         df_nan_removed, indices_list = get_nan_index_list(df)
         embedded_text = delete_from_csr(embedded_text, indices_list)
@@ -320,7 +318,8 @@ def train_on_clean_data():
         tfidf_model = TfidfVectorizer(
                         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
                     )
-        tfidf_model.fit(df.text)
+
+        tfidf_model.fit(clean(df_sub, "text").text)
         embedded_text = tfidf_model.transform(df.text)
         df_nan_removed, indices_list = get_nan_index_list(df)
         embedded_text = delete_from_csr(embedded_text, indices_list)
@@ -352,7 +351,7 @@ def train_on_ruddit_data():
         tfidf_model = TfidfVectorizer(
                         min_df=3, max_df=0.5, analyzer="char_wb", ngram_range=(3, 5)
                     )
-        tfidf_model.fit(df.text)
+        tfidf_model.fit(df_sub.text)
         embedded_text = tfidf_model.transform(df.text)
         df_nan_removed, indices_list = get_nan_index_list(df)
         embedded_text = delete_from_csr(embedded_text, indices_list)
